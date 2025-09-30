@@ -67,26 +67,59 @@ elif action == "Random Pick":
 
 elif action == "Give Points":
     st.subheader("Give or Subtract Points")
-    student_choices = st.multiselect("Select students", df["Name"].tolist())
+
+    mode = st.radio("Apply to:", ["Individual Students", "Group"])
     delta = st.number_input("Points (+ or -)", value=1, step=1)
     note = st.text_input("Optional note")
-    if st.button("Apply Points"):
-        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        for name in student_choices:
-            idx = df[df["Name"]==name].index[0]
-            df.at[idx, "Score"] += delta
-            newscore = df.at[idx, "Score"]
-            history = pd.concat([history, pd.DataFrame([{
-                "Timestamp": ts,
-                "Activity": "Manual",
-                "Type": "Individual",
-                "Target": name,
-                "Delta": delta,
-                "NewScore": newscore,
-                "Notes": note
-            }])], ignore_index=True)
-        save_data(df, history)
-        st.success("Points updated!")
+
+    if mode == "Individual Students":
+        student_choices = st.multiselect("Select students", df["Name"].tolist())
+        if st.button("Apply to Students"):
+            ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            for name in student_choices:
+                idx = df[df["Name"]==name].index[0]
+                df.at[idx, "Score"] += delta
+                newscore = df.at[idx, "Score"]
+                history = pd.concat([history, pd.DataFrame([{
+                    "Timestamp": ts,
+                    "Activity": "Manual",
+                    "Type": "Individual",
+                    "Target": name,
+                    "Delta": delta,
+                    "NewScore": newscore,
+                    "Notes": note
+                }])], ignore_index=True)
+            save_data(df, history)
+            st.success("✅ Points updated for selected students!")
+
+    else:  # Group scoring
+        group_size = st.number_input("Group size", min_value=2, max_value=10, value=4, step=1)
+        males = df[df["Gender"].str.upper()=="M"].sample(frac=1).to_dict('records')
+        females = df[df["Gender"].str.upper()=="F"].sample(frac=1).to_dict('records')
+        combined = []
+        while males or females:
+            if males: combined.append(males.pop(0))
+            if females: combined.append(females.pop(0))
+        groups = [combined[i:i+group_size] for i in range(0, len(combined), group_size)]
+        group_num = st.number_input("Select group number", min_value=1, max_value=len(groups), value=1, step=1)
+        if st.button("Apply to Group"):
+            ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            for p in groups[group_num-1]:
+                name = p['Name']
+                idx = df[df["Name"]==name].index[0]
+                df.at[idx, "Score"] += delta
+                newscore = df.at[idx, "Score"]
+                history = pd.concat([history, pd.DataFrame([{
+                    "Timestamp": ts,
+                    "Activity": "Manual",
+                    "Type": f"Group {group_num}",
+                    "Target": name,
+                    "Delta": delta,
+                    "NewScore": newscore,
+                    "Notes": note
+                }])], ignore_index=True)
+            save_data(df, history)
+            st.success(f"✅ Points updated for Group {group_num}!")
 
 elif action == "History":
     st.subheader("History of Activities")
